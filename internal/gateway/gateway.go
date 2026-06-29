@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,7 +12,6 @@ import (
 	"github.com/dewani12/photon/pkg/logger"
 	"github.com/dewani12/photon/pkg/metrics"
 	"github.com/dewani12/photon/pkg/trace"
-	"github.com/dewani12/photon/pkg/config"
 	"github.com/joho/godotenv"
 )
 
@@ -24,24 +24,30 @@ type Config struct{
 }
 
 type Gateway struct{
-	config Config
+	config *Config
 	server *http.Server
 	client *http.Client
 	exporter *trace.OTLPExporter
 }
 
-func DefaultConfig()Config{
-	godotenv.Load()
-	return Config{
+func DefaultConfig() (*Config, error) {
+	if err := godotenv.Load(); err != nil {
+		return &Config{}, errors.New(".env file not found, using environment variables");;
+	}
+	cfg:=  &Config{
 		UpstreamURL: os.Getenv("UPSTREAM_URL"),
 		APIKey: os.Getenv("API_KEY"),
-		Port: config.GetEnv("PORT",":5000"),
+		Port: os.Getenv("PORT"),
 		ExporterURL: os.Getenv("EXPORTER_URL"),
 		ServiceName: "llm-gateway",
 	}
+	if(cfg.Port==""){
+		cfg.Port="5000"
+	}
+	return cfg, nil
 }
 
-func New(cfg Config)*Gateway{
+func New(cfg *Config)*Gateway{
 	return &Gateway{
 		config: cfg,
 		client: &http.Client{
@@ -65,7 +71,7 @@ func (g* Gateway)Start(){
 	http.Handle("/metrics",metrics.Default.Handler())
 
 	g.server=&http.Server{
-		Addr: g.config.Port,
+		Addr: ":"+g.config.Port,
 	}
 
 	go func(){
@@ -79,8 +85,9 @@ func (g* Gateway)Start(){
 
 	logger.L.Info("llm gateway shutting down")
 
-	g.exporter.Shutdown(context.Background())
 	g.server.Shutdown(context.Background())
+	g.exporter.Shutdown(context.Background())
+	
 }
 
 

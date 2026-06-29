@@ -5,8 +5,11 @@ import (
 )
 
 func main(){
-	cfg:=gateway.DefaultConfig()
-	llmg:=gateway.New(cfg)
+	cfg,err := gateway.DefaultConfig()
+	if err != nil {
+		panic(err)
+	}
+	llmg:= gateway.New(cfg)
 
 	llmg.Start()
 }
