@@ -15,6 +15,7 @@ type Entry struct {
 	Model     string
 	CreatedAt time.Time
 }
+
 //params hash
 //tenant/user scope
 
@@ -34,16 +35,16 @@ type Stats struct {
 }
 
 //cache configuration
-type Config struct{
-	Threshold float64
+type Config struct {
+	Threshold  float64
 	MaxEntries int
-	TTL time.Duration
+	TTL        time.Duration
 }
 
 //in-memory implementation
-type MemoryCache struct{
-	config Config
-	stats Stats
+type MemoryCache struct {
+	config  Config
+	stats   Stats
 	entries *[]Entry
-	mu sync.RWMutex
+	mu      sync.RWMutex
 }

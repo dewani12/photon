@@ -1,17 +1,17 @@
 package trace
 
-import(
-	"time"
+import (
 	"crypto/rand"
 	"encoding/hex"
+	"time"
 )
 
 type SpanStatus int
 
-type Event struct{
-	Name string
+type Event struct {
+	Name      string
 	TimeStamp time.Time
-	Attrs map[string]string 
+	Attrs     map[string]string
 }
 
 const (
@@ -20,48 +20,46 @@ const (
 	StatusError
 )
 
-type Span struct{
-	TraceID string
-	SpanID string
-	ParentID string 
-	Name string
-	StartTime time.Time
-	EndTime time.Time
-	Status SpanStatus
+type Span struct {
+	TraceID    string
+	SpanID     string
+	ParentID   string
+	Name       string
+	StartTime  time.Time
+	EndTime    time.Time
+	Status     SpanStatus
 	Attributes map[string]string
-	Events []Event
+	Events     []Event
 }
 
-func newID(bytes int)string{
-	b:=make([]byte,bytes)
+func newID(bytes int) string {
+	b := make([]byte, bytes)
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
 
-func newTrace()string {
+func newTrace() string {
 	return newID(16)
 }
 
-func newSpan()string {
+func newSpan() string {
 	return newID(8)
 }
 
 //methods of Span
 
-func (s *Span)Duration()time.Duration{
+func (s *Span) Duration() time.Duration {
 	return s.EndTime.Sub(s.StartTime)
 }
 
-func (s *Span)SetAttribute(k,v string){
+func (s *Span) SetAttribute(k, v string) {
 	if s.Attributes == nil {
-        s.Attributes = make(map[string]string)
-    }
-    s.Attributes[k] = v
+		s.Attributes = make(map[string]string)
+	}
+	s.Attributes[k] = v
 }
 
 func (s *Span) End() {
-    s.EndTime = time.Now()
-    exportSpan(s)
+	s.EndTime = time.Now()
+	exportSpan(s)
 }
-
-

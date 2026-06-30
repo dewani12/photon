@@ -1,7 +1,6 @@
 package cache
 
-import()
+import ()
 
-type Embedder struct{
-	
+type Embedder struct {
 }
