@@ -65,7 +65,7 @@ func (g* Gateway)Start(){
 	http.Handle("/metrics",metrics.Default.Handler())
 
 	g.server=&http.Server{
-		Addr: g.config.Port,
+		Addr: ":"+g.config.Port,
 	}
 
 	go func(){
