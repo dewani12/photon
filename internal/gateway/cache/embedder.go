@@ -55,7 +55,7 @@ func NewEmbedder() *Embedder {
 	}
 }
 
-//prompt to vector conversion
+// prompt to vector conversion
 func (e *Embedder) Embed(text string) ([]float64, error) {
 	payload, err := json.Marshal(embedRequest{
 		Model: e.model,

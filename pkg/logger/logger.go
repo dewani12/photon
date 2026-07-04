@@ -19,7 +19,7 @@ func Init() {
 	slog.SetDefault(L)
 }
 
-//pulls logger from context, if any
+// pulls logger from context, if any
 func FromContext(ctx context.Context) *slog.Logger {
 	if l, ok := ctx.Value(ctxKey{}).(*slog.Logger); ok {
 		return l
@@ -27,12 +27,12 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return L
 }
 
-//stores the logger in ctx
+// stores the logger in ctx
 func WithContext(l *slog.Logger, ctx context.Context) context.Context {
 	return context.WithValue(ctx, ctxKey{}, l)
 }
 
-//attach fields to log of active span in context
+// attach fields to log of active span in context
 func WithSpan(ctx context.Context) *slog.Logger {
 	l := FromContext(ctx)
 

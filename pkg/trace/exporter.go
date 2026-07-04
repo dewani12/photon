@@ -35,7 +35,7 @@ func (e *OTLPExporter) Start() {
 	go e.process()
 }
 
-//middleware calls this after every req
+// middleware calls this after every req
 func (e *OTLPExporter) Export(s *Span) {
 	select {
 	case e.ch <- s:
@@ -117,8 +117,8 @@ func (e *OTLPExporter) flush() error {
 
 var ServiceName = "observe"
 
-//converts our spans into OTLP JSON structure
-//TODO: look into it
+// converts our spans into OTLP JSON structure
+// TODO: look into it
 func buildOTLPPayload(spans []*Span) map[string]any {
 	otlpSpans := make([]map[string]any, 0, len(spans))
 

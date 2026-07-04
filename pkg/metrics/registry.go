@@ -43,7 +43,7 @@ func (r *Registry) Handler() http.HandlerFunc {
 	}
 }
 
-//convert map to prometheus label format
+// convert map to prometheus label format
 func renderLabels(labels map[string]string) string {
 	if len(labels) == 0 {
 		return ""

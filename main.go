@@ -15,7 +15,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//inject logger into context
+// inject logger into context
 func observeMiddleware(next http.Handler) http.Handler {
 	return trace.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		l := logger.L

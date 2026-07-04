@@ -25,7 +25,7 @@ func (k CacheKey) Hash() string {
 	return hex.EncodeToString(checksum[:])
 }
 
-//cached entry for query-response pair
+// cached entry for query-response pair
 type Entry struct {
 	Prompt       string
 	Embedding    []float64
@@ -41,14 +41,14 @@ type Entry struct {
 //params hash
 //tenant/user scope
 
-//result of cache lookup
+// result of cache lookup
 type Result struct {
 	Hit   bool
 	Entry *Entry
 	Score float64
 }
 
-//cache performance no.
+// cache performance no.
 type Stats struct {
 	TotalEntries int
 	Hits         int64
@@ -56,7 +56,7 @@ type Stats struct {
 	TokensSaved  int64
 }
 
-//cache configuration
+// cache configuration
 type Config struct {
 	Threshold  float64
 	MaxEntries int
@@ -71,7 +71,7 @@ type MemoryCache struct {
 	mu         sync.RWMutex
 }
 
-//in-memory implementation
+// in-memory implementation
 type Cache interface {
 	Get(k CacheKey, embedding []float64) Result
 
