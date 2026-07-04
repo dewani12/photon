@@ -140,16 +140,9 @@ func Middleware(next http.Handler) http.Handler {
 }
 
 //print span or exporter
-// func printSpan(s *Span){
-// 	fmt.Printf("[SPAN] trace=%s span=%s parent=%s name=%q duration=%s status=%d attrs=%v\n",s.TraceID, s.SpanID, s.ParentID, s.Name, s.Duration(), s.Status, s.Attributes)
-
-// 	if GlobalExporter!=nil{
-// 		GlobalExporter.Export(s)
-// 	}
-// }
 func exportSpan(s *Span) {
-	fmt.Printf("[SPAN] trace=%s span=%s parent=%s name=%q duration=%s status=%d attrs=%v\n",
-		s.TraceID, s.SpanID, s.ParentID, s.Name, s.Duration(), s.Status, s.Attributes)
+	// fmt.Printf("[SPAN] trace=%s span=%s parent=%s name=%q duration=%s status=%d attrs=%v\n",
+	//     s.TraceID, s.SpanID, s.ParentID, s.Name, s.Duration(), s.Status, s.Attributes)
 
 	if GlobalExporter != nil {
 		GlobalExporter.Export(s)

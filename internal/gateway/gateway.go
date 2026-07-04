@@ -2,13 +2,14 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/dewani12/photon/internal/gateway/cache"
+	"github.com/dewani12/photon/pkg/config"
 	"github.com/dewani12/photon/pkg/logger"
 	"github.com/dewani12/photon/pkg/metrics"
 	"github.com/dewani12/photon/pkg/trace"
@@ -24,41 +25,41 @@ type Config struct {
 }
 
 type Gateway struct {
-	config   *Config
+	config   Config
 	server   *http.Server
 	client   *http.Client
 	exporter *trace.OTLPExporter
+	//fields for semantic cache
+	cache    cache.Cache
+	embedder *cache.Embedder
 }
 
-func DefaultConfig() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
-		return &Config{}, errors.New(".env file not found, using environment variables")
-	}
-	cfg := &Config{
+func DefaultConfig() Config {
+	godotenv.Load()
+	return Config{
 		UpstreamURL: os.Getenv("UPSTREAM_URL"),
 		APIKey:      os.Getenv("API_KEY"),
-		Port:        os.Getenv("PORT"),
+		Port:        config.GetEnv("PORT", ":5000"),
 		ExporterURL: os.Getenv("EXPORTER_URL"),
 		ServiceName: "llm-gateway",
 	}
-	if cfg.Port == "" {
-		cfg.Port = "5000"
-	}
-	return cfg, nil
 }
 
-func New(cfg *Config) *Gateway {
+func New(cfg Config) *Gateway {
 	return &Gateway{
 		config: cfg,
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
+		cache:    cache.NewMemoryCache(cache.DefaultConfig()),
+		embedder: cache.NewEmbedder(),
 	}
 }
 
 func (g *Gateway) Start() {
 	logger.Init()
-	Init() //metrics
+	Init()       //metrics
+	cache.Init() //semantic caching
 
 	g.exporter = trace.NewExporter(g.config.ExporterURL)
 	g.exporter.Start()
@@ -85,7 +86,6 @@ func (g *Gateway) Start() {
 
 	logger.L.Info("llm gateway shutting down")
 
-	g.server.Shutdown(context.Background())
 	g.exporter.Shutdown(context.Background())
-
+	g.server.Shutdown(context.Background())
 }

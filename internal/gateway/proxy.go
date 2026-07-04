@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dewani12/photon/internal/gateway/cache"
 	"github.com/dewani12/photon/pkg/logger"
 	"github.com/dewani12/photon/pkg/trace"
 )
@@ -26,7 +27,11 @@ type Message struct {
 type ChatRequest struct {
 	Model    string    `json:"model"`
 	Messages []Message `json:"messages"`
-	Stream   bool      `json:"stream" `
+	Stream   bool      `json:"stream"`
+	//for cache key
+	Temperature float64 `json:"temperature"`
+	TopP        float64 `json:"top_p"`
+	MaxTokens   int     `json:"max_tokens"`
 }
 
 type Choice struct {
@@ -55,7 +60,7 @@ type ChatResponse struct {
 // 	client 		*http.Client
 // }
 
-//SSE Enable
+// SSE Enable
 type ChatChunk struct {
 	ID      string        `json:"id"`
 	Object  string        `json:"object"`
@@ -73,6 +78,26 @@ type ChunkChoice struct {
 type Delta struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+func buildCacheContext(req ChatRequest) (cache.CacheKey, string) {
+	var systemPrompt string
+	parts := make([]string, 0, len(req.Messages))
+
+	for _, msg := range req.Messages {
+		if msg.Role == "system" && systemPrompt == "" {
+			systemPrompt = msg.Content
+		}
+		parts = append(parts, fmt.Sprintf("%s: %s", msg.Role, msg.Content))
+	}
+
+	return cache.CacheKey{
+		Model:        req.Model,
+		SystemPrompt: systemPrompt,
+		Temperature:  req.Temperature,
+		TopP:         req.TopP,
+		MaxTokens:    req.MaxTokens,
+	}, strings.Join(parts, "\n")
 }
 
 func (g *Gateway) ChatHandler(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +128,30 @@ func (g *Gateway) ChatHandler(w http.ResponseWriter, r *http.Request) {
 	span.SetAttribute("llm.stream", fmt.Sprintf("%v", req.Stream))
 
 	//TODO: estimate input token before llm call
+
+	cacheKey, prompt := buildCacheContext(req)
+	var cacheEmbedding []float64
+	if !req.Stream {
+		var err error
+		cacheEmbedding, err = g.embedder.Embed(prompt)
+		if err != nil {
+			l.Warn("cache embedding failed", "error", err)
+		} else {
+			result := g.cache.Get(cacheKey, cacheEmbedding)
+			if result.Hit && result.Entry != nil {
+				l.Info("semantic cache hit", "score", result.Score)
+				cache.RecordHit(result.Entry.TokensUsed, result.Score)
+				span.SetAttribute("cache.hit", "true")
+				span.SetAttribute("cache.score", fmt.Sprintf("%.3f", result.Score))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(result.Entry.Response)
+				return
+			}
+			cache.RecordMiss(result.Score)
+			span.SetAttribute("cache.hit", "false")
+		}
+	}
 
 	l.Info("forwarding to upstream",
 		"model", req.Model,
@@ -140,8 +189,32 @@ func (g *Gateway) ChatHandler(w http.ResponseWriter, r *http.Request) {
 	//set attributes
 	span.SetAttribute("llm.ttft_ms", fmt.Sprintf("%d", ttft.Milliseconds()))
 
+	l.Info("upstream responsed",
+		"model", resp.Model,
+		"choices", len(resp.Choices),
+		"usage_prompt_tokens", resp.Usage.PromptTokens,
+		"usage_completion_tokens", resp.Usage.CompletionTokens,
+		"usage_total_tokens", resp.Usage.TotalTokens,
+		"response_id", resp.ID,
+	)
+	if len(resp.Choices) > 0 {
+		l.Info("upstream response content",
+			"content", resp.Choices[0].Message.Content,
+			"role", resp.Choices[0].Message.Role,
+			"finish_reason", resp.Choices[0].FinishReason,
+		)
+	}
+
 	//update metrics
 	llmRequestsTotal.Inc()
+
+	if !req.Stream && len(cacheEmbedding) > 0 {
+		tokens := resp.Usage.TotalTokens
+		if tokens == 0 {
+			tokens = req.MaxTokens
+		}
+		g.cache.Set(cacheKey, prompt, cacheEmbedding, body, resp.Model, tokens)
+	}
 
 	l.Info("upstream responded")
 
@@ -152,7 +225,7 @@ func (g *Gateway) ChatHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-//returns raw response
+// returns raw response
 func (g *Gateway) forward(ctx context.Context, body []byte) (*http.Response, []byte, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
